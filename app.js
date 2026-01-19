@@ -283,7 +283,7 @@ async function loadTimesheetAndEntries() {
 
   if (!tsRes.data) {
     const ins = await db.from("timesheets")
-      .insert({ professional_email: pro.email, period_start: start, status: "draft" })
+      .insert({ professional_email: pro.email, period_start: start, status: "Draft" })
       .select("*").single();
     if (ins.error) { showBanner("proErrors", ins.error.message); return; }
     tsRes = ins;
@@ -632,7 +632,7 @@ $("btnSave")?.addEventListener("click", async () => {
   if (!ok) return;
 
   const up = await db.from("timesheets")
-    .update({ status: "draft", updated_at: new Date().toISOString() })
+    .update({ status: "Draft", updated_at: new Date().toISOString() })
     .eq("id", pro.timesheet.id)
     .select("*").single();
 
@@ -661,7 +661,7 @@ $("btnSubmit")?.addEventListener("click", async () => {
 
   const tsUp = await db.from("timesheets")
     .update({
-      status: "submitted",
+      status: "Submitted",
       submitted_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
@@ -704,7 +704,7 @@ $("btnLoadAppr")?.addEventListener("click", async () => {
   const ts = await db.from("timesheets")
     .select("*")
     .in("professional_email", proEmails)
-    .eq("status", "submitted")
+    .eq("status", "Submitted")
     .order("period_start", {ascending:false});
 
   if (ts.error) {
@@ -743,7 +743,7 @@ $("btnLoadAppr")?.addEventListener("click", async () => {
     btn.onclick = async () => {
       const id = btn.getAttribute("data-approve");
       const up = await db.from("timesheets")
-        .update({ status: "approved", updated_at: new Date().toISOString() })
+        .update({ status: "Approved", updated_at: new Date().toISOString() })
         .eq("id", id);
       if (up.error) return toast("Error", up.error.message, "err");
       toast("Approved", "Timesheet approved.");
@@ -755,7 +755,7 @@ $("btnLoadAppr")?.addEventListener("click", async () => {
     btn.onclick = async () => {
       const id = btn.getAttribute("data-return");
       const up = await db.from("timesheets")
-        .update({ status: "return", updated_at: new Date().toISOString() })
+        .update({ status: "Return", updated_at: new Date().toISOString() })
         .eq("id", id);
       if (up.error) return toast("Error", up.error.message, "err");
       toast("Returned", "Timesheet returned to professional.");
