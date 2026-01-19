@@ -7,17 +7,14 @@ const SUPABASE_ANON_KEY = "sb_publishable_VXhUaC_KIJQPoGXcJ5BMdg_BEx0i6wF";
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // =========================
-// Helpers
+// HELPERS
 // =========================
 const $ = (id) => document.getElementById(id);
 
 function toast(title, body = "", kind = "ok") {
   const t = $("toast");
   t.className = "toast show " + (kind === "ok" ? "ok" : "err");
-  t.innerHTML = `
-    <div class="tTitle">${escapeHtml(title)}</div>
-    <div class="tBody">${escapeHtml(body)}</div>
-  `;
+  t.innerHTML = `<div class="tTitle">${escapeHtml(title)}</div><div class="tBody">${escapeHtml(body)}</div>`;
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => t.classList.remove("show"), 2600);
 }
@@ -28,29 +25,31 @@ function showBanner(id, text) {
   el.style.display = "block";
   el.textContent = text;
 }
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || "").trim());
 }
+
 function toISODate(d) {
   const x = new Date(d);
   x.setHours(0,0,0,0);
   return x.toISOString().slice(0,10);
 }
+
 function addDays(iso, days) {
   const d = new Date(iso + "T00:00:00");
   d.setDate(d.getDate() + days);
   return toISODate(d);
 }
+
 function round2(n) { return Math.round(n * 100) / 100; }
-function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
+function safeNum(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+
 function isQuarterHourIncrement(hours) {
   const x = Math.round(hours * 100) / 100;
-  const q = x * 4;
-  return Math.abs(q - Math.round(q)) < 1e-9;
+  return Math.abs(x * 4 - Math.round(x * 4)) < 1e-9;
 }
+
 function escapeHtml(s) {
   return String(s ?? "")
     .replaceAll("&","&amp;")
@@ -59,40 +58,36 @@ function escapeHtml(s) {
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#039;");
 }
-function dayName(iso) {
-  const d = new Date(iso + "T00:00:00");
-  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
-}
-function isWeekday(iso) {
-  const dow = new Date(iso + "T00:00:00").getDay();
-  return dow >= 1 && dow <= 5;
-}
 
-// Anchor: first 2-week period in 2026 starts 2026-01-05 (Monday)
-const ANCHOR = "2026-01-05";
-function periodStartForDate(selectedISO) {
-  const a = new Date(ANCHOR + "T00:00:00");
-  const s = new Date(selectedISO + "T00:00:00");
-  const diffDays = Math.floor((s - a) / (1000*60*60*24));
-  const k = Math.floor(diffDays / 14);
-  const start = new Date(a);
-  start.setDate(a.getDate() + k*14);
-  return toISODate(start);
-}
-function buildPeriodDays(periodStartISO) {
-  const days = [];
-  for (let i=0;i<14;i++) days.push(addDays(periodStartISO, i));
-  return days;
-}
-function weekIndexWithinPeriod(iso, periodStartISO) {
-  const p = new Date(periodStartISO + "T00:00:00");
-  const d = new Date(iso + "T00:00:00");
-  const diff = Math.floor((d - p) / (1000*60*60*24));
-  return (diff < 7) ? 1 : 2;
+function dayName(iso) {
+  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date(iso).getDay()];
 }
 
 // =========================
-// State
+// PERIOD LOGIC
+// =========================
+const ANCHOR = "2026-01-05"; // Monday
+
+function periodStartForDate(selectedISO) {
+  const a = new Date(ANCHOR);
+  const s = new Date(selectedISO);
+  const diffDays = Math.floor((s - a) / 86400000);
+  const k = Math.floor(diffDays / 14);
+  a.setDate(a.getDate() + k * 14);
+  return toISODate(a);
+}
+
+function buildPeriodDays(startISO) {
+  return Array.from({length:14}, (_,i) => addDays(startISO, i));
+}
+
+function weekIndexWithinPeriod(dayISO, periodStartISO) {
+  const diff = Math.floor((new Date(dayISO) - new Date(periodStartISO)) / 86400000);
+  return diff < 7 ? 1 : 2;
+}
+
+// =========================
+// STATE
 // =========================
 let pro = {
   email: null,
@@ -103,704 +98,291 @@ let pro = {
   projects: [],
   activities: [],
   statuses: [],
-  autosaveTimer: null,
-  dirty: false
+  dirty: false,
+  autosaveTimer: null
 };
 
 // =========================
-// Tabs
+// TABS
 // =========================
-function setActiveTab(tabId, panelId) {
-  ["tabPro","tabAppr","tabAdmin"].forEach(id => $(id).classList.remove("active"));
-  ["panelPro","panelAppr","panelAdmin"].forEach(id => $(id).classList.remove("active"));
-  $(tabId).classList.add("active");
-  $(panelId).classList.add("active");
+function activate(tab, panel) {
+  ["tabPro","tabAppr","tabAdmin"].forEach(t => $(t).classList.remove("active"));
+  ["panelPro","panelAppr","panelAdmin"].forEach(p => $(p).classList.remove("active"));
+  $(tab).classList.add("active");
+  $(panel).classList.add("active");
 }
-$("tabPro").onclick = () => setActiveTab("tabPro","panelPro");
-$("tabAppr").onclick = () => setActiveTab("tabAppr","panelAppr");
-$("tabAdmin").onclick = () => setActiveTab("tabAdmin","panelAdmin");
+
+$("tabPro").onclick = () => activate("tabPro","panelPro");
+$("tabAppr").onclick = () => activate("tabAppr","panelAppr");
+$("tabAdmin").onclick = () => activate("tabAdmin","panelAdmin");
 
 // =========================
-// Reference data
+// LOAD REFERENCE DATA
 // =========================
 async function loadReferenceData() {
-  const [projectsRes, activitiesRes, statusesRes] = await Promise.all([
-    db.from("projects").select("*").order("name", {ascending:true}),
-    db.from("activities").select("*").order("name", {ascending:true}),
-    db.from("timesheet_statuses").select("*").order("code", {ascending:true})
+  const [p,a,s] = await Promise.all([
+    db.from("projects").select("*").order("name"),
+    db.from("activities").select("*").order("code"),
+    db.from("timesheet_statuses").select("*").order("code")
   ]);
-
-  if (projectsRes.error) console.error(projectsRes.error);
-  if (activitiesRes.error) console.error(activitiesRes.error);
-  if (statusesRes.error) console.error(statusesRes.error);
-
-  pro.projects = projectsRes.data || [];
-  pro.activities = activitiesRes.data || [];
-  pro.statuses = statusesRes.data || [];
+  pro.projects = p.data || [];
+  pro.activities = a.data || [];
+  pro.statuses = s.data || [];
 }
 
 // =========================
-// Professional: load & period
+// PROFESSIONAL
 // =========================
 $("btnLoadPro").onclick = async () => {
-  showBanner("proErrors", "");
-  showBanner("proWarnings", "");
-
   const email = $("proEmail").value.trim().toLowerCase();
-  if (!isValidEmail(email)) {
-    showBanner("proErrors", "Please enter a valid email address.");
-    return;
-  }
+  if (!isValidEmail(email)) return showBanner("proErrors","Enter a valid email.");
 
   await loadReferenceData();
 
-  // Ensure professional exists
-  let profRes = await db.from("professionals").select("*").eq("email", email).maybeSingle();
-  if (profRes.error) { showBanner("proErrors", profRes.error.message); return; }
-
-  if (!profRes.data) {
-    const ins = await db.from("professionals").insert({ email }).select("*").single();
-    if (ins.error) { showBanner("proErrors", ins.error.message); return; }
-    profRes = ins;
+  let prof = await db.from("professionals").select("*").eq("email",email).maybeSingle();
+  if (!prof.data) {
+    const ins = await db.from("professionals").insert({email}).select("*").single();
+    prof = ins;
   }
 
   pro.email = email;
-  pro.approver_email = profRes.data.approver_email || null;
-  $("proApproverMeta").innerHTML = `Approver: <span class="mono">${escapeHtml(pro.approver_email || "—")}</span>`;
+  pro.approver_email = prof.data.approver_email;
+  $("proApproverMeta").innerHTML = `Approver: <span class="mono">${escapeHtml(pro.approver_email||"—")}</span>`;
 
-  const today = toISODate(new Date());
-  $("proDate").value = today;
-  pro.period_start = periodStartForDate(today);
-
-  await loadTimesheetAndEntries();
-  toast("Loaded", "Professional data loaded.");
+  $("proDate").value = toISODate(new Date());
+  pro.period_start = periodStartForDate($("proDate").value);
+  await loadTimesheet();
 };
 
 $("btnSetPeriod").onclick = async () => {
-  showBanner("proErrors", "");
-  showBanner("proWarnings", "");
-  if (!pro.email) { showBanner("proErrors", "Load your email first."); return; }
-
-  const picked = $("proDate").value;
-  if (!picked) { showBanner("proErrors", "Pick a date."); return; }
-
-  pro.period_start = periodStartForDate(picked);
-  await loadTimesheetAndEntries();
+  if (!pro.email) return showBanner("proErrors","Load your email first.");
+  pro.period_start = periodStartForDate($("proDate").value);
+  await loadTimesheet();
 };
 
-async function loadTimesheetAndEntries() {
-  $("saveChip").textContent = "Loading";
-  $("saveState").textContent = "Fetching timesheet...";
-
+async function loadTimesheet() {
   const start = pro.period_start;
-  const end = addDays(start, 13);
-  $("periodLabel").textContent = `${start} to ${end}`;
+  $("periodLabel").textContent = `${start} to ${addDays(start,13)}`;
 
-  // reload professional so approver changes show up
-  const pr = await db.from("professionals").select("*").eq("email", pro.email).single();
-  if (!pr.error) pro.approver_email = pr.data.approver_email || null;
-  $("proApproverMeta").innerHTML = `Approver: <span class="mono">${escapeHtml(pro.approver_email || "—")}</span>`;
-
-  // load or create timesheet
-  let tsRes = await db.from("timesheets")
+  let ts = await db.from("timesheets")
     .select("*")
-    .eq("professional_email", pro.email)
-    .eq("period_start", start)
+    .eq("professional_email",pro.email)
+    .eq("period_start",start)
     .maybeSingle();
 
-  if (tsRes.error) { showBanner("proErrors", tsRes.error.message); return; }
-
-  if (!tsRes.data) {
-    const ins = await db.from("timesheets")
-      .insert({ professional_email: pro.email, period_start: start, status: "draft" })
+  if (!ts.data) {
+    ts = await db.from("timesheets")
+      .insert({professional_email:pro.email,period_start:start,status:"draft"})
       .select("*").single();
-    if (ins.error) { showBanner("proErrors", ins.error.message); return; }
-    tsRes = ins;
   }
 
-  pro.timesheet = tsRes.data;
+  pro.timesheet = ts.data;
   $("tsStatus").textContent = pro.timesheet.status;
 
-  // load entries
-  const eRes = await db.from("time_entries")
+  const e = await db.from("time_entries")
     .select("*")
-    .eq("timesheet_id", pro.timesheet.id)
-    .order("entry_date", {ascending:true});
+    .eq("timesheet_id",pro.timesheet.id)
+    .order("entry_date");
 
-  if (eRes.error) { showBanner("proErrors", eRes.error.message); return; }
-  pro.entries = eRes.data || [];
-
+  pro.entries = e.data || [];
   renderTimesheet();
-  updateComputedUI();
-
-  pro.dirty = false;
-  $("saveChip").textContent = "Loaded";
-  $("saveState").textContent = "Ready.";
+  updateComputed();
 }
 
 // =========================
-// Rendering
+// RENDER TIMESHEET
 // =========================
 function renderTimesheet() {
   const days = buildPeriodDays(pro.period_start);
-  const activeProjects = pro.projects.filter(p => p.status === "active");
+  let html = `<table><thead><tr><th>Day</th><th>Entries</th><th>Total</th></tr></thead><tbody>`;
 
-  const dayEntries = {};
-  for (const d of days) dayEntries[d] = [];
-  for (const e of pro.entries) {
-    if (!dayEntries[e.entry_date]) dayEntries[e.entry_date] = [];
-    dayEntries[e.entry_date].push(e);
-  }
-
-  let html = `
-    <div class="tableWrap">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:180px;">Day</th>
-            <th>Entries</th>
-            <th style="width:150px;">Day total</th>
-          </tr>
-        </thead>
-        <tbody>
-  `;
-
-  for (const dayISO of days) {
+  for (const d of days) {
     html += `
       <tr>
-        <td>
-          <div style="font-weight:800;">${dayName(dayISO)} <span class="mono">${dayISO}</span></div>
-          <div class="small muted">${isWeekday(dayISO) ? "Weekday min 8 hrs (required for submit)" : "Weekend"}</div>
-        </td>
-        <td>
-          <div id="dayRows_${dayISO}"></div>
-          <button class="btn" data-addrow="${dayISO}">+ Add row</button>
-        </td>
-        <td class="right">
-          <div class="mono" id="dayTotal_${dayISO}">0.00</div>
-        </td>
-      </tr>
-    `;
+        <td><b>${dayName(d)}</b><br><span class="mono">${d}</span></td>
+        <td id="day_${d}"></td>
+        <td class="mono" id="total_${d}">0.00</td>
+      </tr>`;
   }
 
-  html += `
-        </tbody>
-      </table>
-    </div>
-
-    <div class="row" style="margin-top:12px;">
-      <span class="badge blue"><span class="dot"></span>Week 1 total: <span id="wk1Total" class="mono">0.00</span></span>
-      <span class="badge blue"><span class="dot"></span>Week 2 total: <span id="wk2Total" class="mono">0.00</span></span>
-      <span class="badge yellow"><span class="dot"></span>Project/week > 40 hours highlights rows</span>
-    </div>
-  `;
+  html += `</tbody></table>
+    <div class="row">
+      <span>Week 1: <span id="wk1" class="mono">0.00</span></span>
+      <span>Week 2: <span id="wk2" class="mono">0.00</span></span>
+    </div>`;
 
   $("timesheetArea").innerHTML = html;
 
-  for (const dayISO of days) {
-    renderDayRows(dayISO, activeProjects);
-  }
-
-  document.querySelectorAll("button[data-addrow]").forEach(btn => {
-    btn.onclick = () => addNewRow(btn.getAttribute("data-addrow"));
-  });
+  for (const d of days) renderDay(d);
 }
 
-function renderDayRows(dayISO, activeProjects) {
-  const container = $("dayRows_" + dayISO);
+function renderDay(dayISO) {
   const rows = pro.entries.filter(e => e.entry_date === dayISO);
+  const activeProjects = pro.projects.filter(p => p.status==="active");
 
-  if (!rows.length) {
-    container.innerHTML = `<div class="small muted">No entries yet.</div>`;
-    return;
+  let html = "";
+  for (const e of rows) {
+    html += `
+      <div class="entryRow" id="row_${e.id}">
+        <select id="type_${e.id}">
+          <option value="project" ${e.activity_type==="project"?"selected":""}>project</option>
+          <option value="activity" ${e.activity_type==="activity"?"selected":""}>activity</option>
+        </select>
+
+        ${e.activity_type==="project"
+          ? `<select id="proj_${e.id}">
+              <option value="">Select project</option>
+              ${activeProjects.map(p=>`<option value="${p.id}" ${p.id===e.project_id?"selected":""}>${escapeHtml(p.name)}</option>`).join("")}
+            </select>`
+          : `<select id="act_${e.id}">
+              <option value="">Select activity</option>
+              ${pro.activities.map(a=>`<option value="${a.code}" ${a.code===e.activity_code?"selected":""}>${escapeHtml(a.name)}</option>`).join("")}
+            </select>`}
+
+        <input type="number" step="0.25" value="${e.hours}" id="hrs_${e.id}">
+        <button onclick="deleteRow('${e.id}')">✕</button>
+      </div>`;
   }
 
-  container.innerHTML = rows.map(e => rowEditorHTML(e, activeProjects)).join("");
-  rows.forEach(e => attachRowHandlers(e.id));
+  html += `<button onclick="addRow('${dayISO}')">+ Add row</button>`;
+  $("day_"+dayISO).innerHTML = html;
+
+  rows.forEach(e => wireRow(e));
 }
 
-function rowEditorHTML(e, activeProjects) {
-  const isProj = e.activity_type === "project";
-  const projOptions =
-    ['<option value="">Select project…</option>']
-      .concat(activeProjects.map(p =>
-        `<option value="${p.id}" ${e.project_id===p.id?"selected":""}>${escapeHtml(p.name)}</option>`
-      )).join("");
-
-  const actOptions =
-    ['<option value="">Select activity…</option>']
-      .concat(pro.activities.map(a =>
-        `<option value="${a.code}" ${e.activity_code===a.code?"selected":""}>${escapeHtml(a.name)}</option>`
-      )).join("");
-
-  return `
-    <div class="entryRow" id="row_${e.id}">
-      <div class="cell">
-        <div class="label">Type</div>
-        <select id="type_${e.id}">
-          <option value="project" ${isProj?"selected":""}>project</option>
-          <option value="activity" ${!isProj?"selected":""}>activity</option>
-        </select>
-      </div>
-
-      <div class="cell">
-        <div class="label">Project / Activity</div>
-        <div id="pickWrap_${e.id}">
-          ${isProj
-            ? `<select id="project_${e.id}">${projOptions}</select>`
-            : `<select id="activity_${e.id}">${actOptions}</select>`
-          }
-        </div>
-      </div>
-
-      <div class="cell">
-        <div class="label">Hours (.25)</div>
-        <input id="hours_${e.id}" type="number" step="0.25" min="0" max="24" value="${e.hours ?? 0}" />
-      </div>
-
-      <div class="cell">
-        <div class="label">Note (optional)</div>
-        <input id="note_${e.id}" value="${escapeHtml(e.note || "")}" />
-      </div>
-
-      <div class="cell">
-        <div class="label">&nbsp;</div>
-        <button class="btn dangerBtn" id="del_${e.id}">Delete</button>
-      </div>
-    </div>
-  `;
-}
-
-function attachRowHandlers(entryId) {
-  const e = pro.entries.find(x => x.id === entryId);
-  if (!e) return;
-
-  $("type_" + entryId).onchange = () => {
-    e.activity_type = $("type_" + entryId).value;
-    if (e.activity_type === "project") e.activity_code = null;
-    else e.project_id = null;
-
-    markDirty();
-    // rerender day to swap dropdown
-    const activeProjects = pro.projects.filter(p => p.status === "active");
-    renderDayRows(e.entry_date, activeProjects);
-    updateComputedUI();
-    scheduleAutosave();
+function wireRow(e) {
+  $("type_"+e.id).onchange = ev => {
+    e.activity_type = ev.target.value;
+    if (e.activity_type==="project") e.activity_code=null;
+    else e.project_id=null;
+    renderDay(e.entry_date);
   };
 
-  $("hours_" + entryId).oninput = () => {
-    e.hours = safeNum($("hours_" + entryId).value);
-    markDirty();
-    updateComputedUI();
-    scheduleAutosave();
-  };
+  if ($("proj_"+e.id))
+    $("proj_"+e.id).onchange = ev => { e.project_id = ev.target.value||null; markDirty(); };
 
-  $("note_" + entryId).oninput = () => {
-    e.note = $("note_" + entryId).value || "";
-    markDirty();
-    scheduleAutosave();
-  };
+  if ($("act_"+e.id))
+    $("act_"+e.id).onchange = ev => { e.activity_code = ev.target.value||null; markDirty(); };
 
-  const projSel = $("project_" + entryId);
-  const actSel = $("activity_" + entryId);
-
-  if (projSel) projSel.onchange = () => {
-    e.project_id = projSel.value || null;
+  $("hrs_"+e.id).oninput = ev => {
+    e.hours = safeNum(ev.target.value);
     markDirty();
-    updateComputedUI();
-    scheduleAutosave();
-  };
-  if (actSel) actSel.onchange = () => {
-    e.activity_code = actSel.value || null;
-    markDirty();
-    updateComputedUI();
-    scheduleAutosave();
-  };
-
-  $("del_" + entryId).onclick = async () => {
-    showBanner("proErrors", "");
-    const del = await db.from("time_entries").delete().eq("id", entryId);
-    if (del.error) { showBanner("proErrors", del.error.message); return; }
-    pro.entries = pro.entries.filter(x => x.id !== entryId);
-    markDirty();
-    renderTimesheet();
-    updateComputedUI();
-    scheduleAutosave();
+    updateComputed();
   };
 }
 
-async function addNewRow(dayISO) {
-  showBanner("proErrors", "");
-  if (!pro.timesheet) { showBanner("proErrors", "Load timesheet first."); return; }
-
+async function addRow(dayISO) {
   const ins = await db.from("time_entries").insert({
     timesheet_id: pro.timesheet.id,
     entry_date: dayISO,
     activity_type: "project",
-    hours: 0,
-    note: ""
+    hours: 0
   }).select("*").single();
 
-  if (ins.error) { showBanner("proErrors", ins.error.message); return; }
-
   pro.entries.push(ins.data);
-  markDirty();
+  renderDay(dayISO);
+}
+
+async function deleteRow(id) {
+  await db.from("time_entries").delete().eq("id",id);
+  pro.entries = pro.entries.filter(e=>e.id!==id);
   renderTimesheet();
-  updateComputedUI();
-  scheduleAutosave();
+  updateComputed();
 }
 
 // =========================
-// Validation & computed UI
+// COMPUTED + VALIDATION
 // =========================
-function updateComputedUI() {
-  showBanner("proErrors", "");
-  showBanner("proWarnings", "");
-
+function updateComputed() {
   const days = buildPeriodDays(pro.period_start);
+  let wk1=0,wk2=0;
+  const dayTotals = {};
 
-  // totals
-  const dayTotal = {};
-  for (const d of days) dayTotal[d] = 0;
+  for (const d of days) dayTotals[d]=0;
+  for (const e of pro.entries) dayTotals[e.entry_date]+=safeNum(e.hours);
 
-  for (const e of pro.entries) {
-    dayTotal[e.entry_date] = (dayTotal[e.entry_date] || 0) + safeNum(e.hours);
-  }
-
-  let wk1 = 0, wk2 = 0;
   for (const d of days) {
-    const total = round2(dayTotal[d] || 0);
-    const el = $("dayTotal_" + d);
-    if (el) el.textContent = total.toFixed(2);
-
-    if (total > 24.00001) showBanner("proErrors", `Error: ${d} exceeds 24 hours.`);
-
-    const w = weekIndexWithinPeriod(d, pro.period_start);
-    if (w === 1) wk1 += total; else wk2 += total;
-  }
-  if ($("wk1Total")) $("wk1Total").textContent = round2(wk1).toFixed(2);
-  if ($("wk2Total")) $("wk2Total").textContent = round2(wk2).toFixed(2);
-
-  // weekly per project > 40 highlight
-  const perProjWeek = {};
-  for (const e of pro.entries) {
-    if (e.activity_type !== "project" || !e.project_id) continue;
-    const w = weekIndexWithinPeriod(e.entry_date, pro.period_start);
-    const key = w + "|" + e.project_id;
-    perProjWeek[key] = (perProjWeek[key] || 0) + safeNum(e.hours);
+    $("total_"+d).textContent = dayTotals[d].toFixed(2);
+    const w = weekIndexWithinPeriod(d,pro.period_start);
+    w===1 ? wk1+=dayTotals[d] : wk2+=dayTotals[d];
   }
 
-  document.querySelectorAll(".highlight").forEach(el => el.classList.remove("highlight"));
-  const overKeys = Object.keys(perProjWeek).filter(k => perProjWeek[k] > 40.00001);
-  if (overKeys.length) {
-    showBanner("proWarnings", "Warning: One or more projects exceed 40 hours in a week (highlighted).");
-    for (const e of pro.entries) {
-      if (e.activity_type !== "project" || !e.project_id) continue;
-      const w = weekIndexWithinPeriod(e.entry_date, pro.period_start);
-      const key = w + "|" + e.project_id;
-      if (perProjWeek[key] > 40.00001) {
-        const rowEl = $("row_" + e.id);
-        if (rowEl) rowEl.classList.add("highlight");
-      }
-    }
-  }
-
-  // save chip styling
-  $("saveChip").textContent = pro.dirty ? "Unsaved" : "Saved";
+  $("wk1").textContent = wk1.toFixed(2);
+  $("wk2").textContent = wk2.toFixed(2);
 }
 
-function validateBeforeSaveOrSubmit(isSubmit) {
-  const errs = [];
-  const days = buildPeriodDays(pro.period_start);
+function validateSubmit() {
+  const errs=[];
+  let wk1=0,wk2=0;
 
   for (const e of pro.entries) {
-    const h = safeNum(e.hours);
-    if (h < 0) errs.push("Hours cannot be negative.");
-    if (!isQuarterHourIncrement(h)) errs.push(`Hours must be in .25 increments (issue on ${e.entry_date}).`);
-
-    if (e.activity_type === "project") {
-      if (!e.project_id) errs.push(`Each row must have a project selected (${e.entry_date}).`);
-    } else {
-      if (!e.activity_code) errs.push(`Each row must have an activity selected (${e.entry_date}).`);
-    }
+    if (!isQuarterHourIncrement(e.hours)) errs.push("Hours must be in .25 increments.");
+    if (e.activity_type==="project" && !e.project_id) errs.push("Missing project.");
+    if (e.activity_type==="activity" && !e.activity_code) errs.push("Missing activity.");
   }
 
-  if (isSubmit) {
-    const dayTotal = {};
-    for (const d of days) dayTotal[d] = 0;
-    for (const e of pro.entries) dayTotal[e.entry_date] = (dayTotal[e.entry_date] || 0) + safeNum(e.hours);
-
-    for (const d of days) {
-      if (isWeekday(d)) {
-        const total = round2(dayTotal[d] || 0);
-        if (total + 1e-9 < 8) errs.push(`Weekday ${d} must be at least 8 hours (currently ${total.toFixed(2)}).`);
-      }
-      if ((dayTotal[d] || 0) > 24.00001) errs.push(`Day ${d} exceeds 24 hours.`);
-    }
-
-    if (!pro.approver_email || !isValidEmail(pro.approver_email)) {
-      errs.push("No approver is assigned. Ask admin to assign one before submitting.");
-    }
+  for (const d of buildPeriodDays(pro.period_start)) {
+    const total = pro.entries.filter(e=>e.entry_date===d).reduce((s,e)=>s+safeNum(e.hours),0);
+    if (total>24) errs.push(`More than 24 hours on ${d}`);
+    weekIndexWithinPeriod(d,pro.period_start)===1 ? wk1+=total : wk2+=total;
   }
+
+  if (wk1<40) errs.push(`Week 1 must be ≥ 40 hours (currently ${wk1.toFixed(2)})`);
+  if (wk2<40) errs.push(`Week 2 must be ≥ 40 hours (currently ${wk2.toFixed(2)})`);
+  if (!pro.approver_email) errs.push("No approver assigned.");
 
   return errs;
 }
 
 // =========================
-// Autosave + Save + Submit
+// SAVE / SUBMIT
 // =========================
-function markDirty() {
-  pro.dirty = true;
-  $("saveState").textContent = "Changes detected (autosaving soon)…";
-  $("saveChip").textContent = "Unsaved";
-}
-function scheduleAutosave() {
-  if (!pro.email || !pro.timesheet) return;
-  clearTimeout(pro.autosaveTimer);
-  pro.autosaveTimer = setTimeout(async () => {
-    await saveTimesheet(false);
-  }, 900);
-}
-
-$("btnSave").onclick = async () => saveTimesheet(true);
-
-async function saveTimesheet(showMessage) {
-  showBanner("proErrors", "");
-  const errs = validateBeforeSaveOrSubmit(false);
-  if (errs.length) { showBanner("proErrors", errs[0]); return; }
-
-  $("saveState").textContent = "Saving…";
-  $("saveChip").textContent = "Saving";
-
-  // keep draft unless already submitted/approved etc.
-  let newStatus = pro.timesheet.status;
-  if (pro.timesheet.status === "draft" || pro.timesheet.status === "return") newStatus = "draft";
-
-  const tsUp = await db.from("timesheets")
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
-    .eq("id", pro.timesheet.id)
-    .select("*").single();
-
-  if (tsUp.error) { showBanner("proErrors", tsUp.error.message); $("saveState").textContent = "Save failed."; return; }
-
-  pro.timesheet = tsUp.data;
-  $("tsStatus").textContent = pro.timesheet.status;
-
-  pro.dirty = false;
-  $("saveChip").textContent = "Saved";
-  $("saveState").textContent = "Saved.";
-  if (showMessage) toast("Saved", "Your changes have been saved.");
-}
+$("btnSave").onclick = async () => {
+  await db.from("timesheets").update({status:"draft"}).eq("id",pro.timesheet.id);
+  toast("Saved","Draft saved.");
+};
 
 $("btnSubmit").onclick = async () => {
-  showBanner("proErrors", "");
-  const errs = validateBeforeSaveOrSubmit(true);
-  if (errs.length) { showBanner("proErrors", errs[0]); return; }
+  const errs = validateSubmit();
+  if (errs.length) return showBanner("proErrors",errs[0]);
 
-  $("saveState").textContent = "Submitting…";
-  $("saveChip").textContent = "Submitting";
+  await db.from("timesheets")
+    .update({status:"submitted",submitted_at:new Date().toISOString()})
+    .eq("id",pro.timesheet.id);
 
-  const tsUp = await db.from("timesheets")
-    .update({ status: "submitted", submitted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq("id", pro.timesheet.id)
-    .select("*").single();
-
-  if (tsUp.error) { showBanner("proErrors", tsUp.error.message); $("saveState").textContent = "Submit failed."; return; }
-
-  pro.timesheet = tsUp.data;
-  $("tsStatus").textContent = pro.timesheet.status;
-  pro.dirty = false;
-  $("saveChip").textContent = "Submitted";
-  $("saveState").textContent = "Submitted for approval.";
-  toast("Submitted", "Your timesheet was submitted for approval.");
+  toast("Submitted","Timesheet submitted.");
+  $("tsStatus").textContent="submitted";
 };
 
 // =========================
-// Approver
+// ADMIN – PROJECTS / STATUSES / ACTIVITIES
 // =========================
-$("btnLoadAppr").onclick = async () => {
-  const email = $("apprEmail").value.trim().toLowerCase();
-  $("apprList").innerHTML = "";
-
-  if (!isValidEmail(email)) {
-    $("apprList").innerHTML = `<div class="banner error" style="display:block;">Enter a valid approver email.</div>`;
-    return;
-  }
-
-  const pros = await db.from("professionals").select("*").eq("approver_email", email);
-  if (pros.error) {
-    $("apprList").innerHTML = `<div class="banner error" style="display:block;">${escapeHtml(pros.error.message)}</div>`;
-    return;
-  }
-  const proEmails = (pros.data || []).map(p => p.email);
-  if (!proEmails.length) {
-    $("apprList").innerHTML = `<div class="card"><div class="muted small">No professionals assigned to this approver yet.</div></div>`;
-    return;
-  }
-
-  const ts = await db.from("timesheets")
-    .select("*")
-    .in("professional_email", proEmails)
-    .eq("status", "submitted")
-    .order("period_start", {ascending:false});
-
-  if (ts.error) {
-    $("apprList").innerHTML = `<div class="banner error" style="display:block;">${escapeHtml(ts.error.message)}</div>`;
-    return;
-  }
-
-  const list = ts.data || [];
-  if (!list.length) {
-    $("apprList").innerHTML = `<div class="card"><div class="muted small">No submitted timesheets right now.</div></div>`;
-    return;
-  }
-
-  let html = "";
-  for (const t of list) {
-    html += `
-      <div class="card" style="margin-top:12px;">
-        <div class="row" style="justify-content:space-between;">
-          <div>
-            <div style="font-weight:800;">${escapeHtml(t.professional_email)}</div>
-            <div class="small muted">Period: <span class="mono">${t.period_start}</span> to <span class="mono">${addDays(t.period_start, 13)}</span></div>
-          </div>
-          <span class="badge yellow"><span class="dot"></span>${escapeHtml(t.status)}</span>
-        </div>
-        <div class="row" style="margin-top:10px;">
-          <button class="btn primary" data-approve="${t.id}">Approve</button>
-          <button class="btn" data-return="${t.id}">Return</button>
-        </div>
-      </div>
-    `;
-  }
-  $("apprList").innerHTML = html;
-
-  document.querySelectorAll("button[data-approve]").forEach(btn => {
-    btn.onclick = async () => {
-      const id = btn.getAttribute("data-approve");
-      await db.from("timesheets").update({ status: "approved", updated_at: new Date().toISOString() }).eq("id", id);
-      toast("Approved", "Timesheet approved.");
-      $("btnLoadAppr").click();
-    };
-  });
-
-  document.querySelectorAll("button[data-return]").forEach(btn => {
-    btn.onclick = async () => {
-      const id = btn.getAttribute("data-return");
-      await db.from("timesheets").update({ status: "return", updated_at: new Date().toISOString() }).eq("id", id);
-      toast("Returned", "Timesheet returned to professional.");
-      $("btnLoadAppr").click();
-    };
-  });
-};
-
-// =========================
-// Admin
-// =========================
-$("btnAssignApprover").onclick = async () => {
-  const p = $("adminProEmail").value.trim().toLowerCase();
-  const a = $("adminApproverEmail").value.trim().toLowerCase();
-  $("adminAssignMsg").textContent = "";
-
-  if (!isValidEmail(p)) { $("adminAssignMsg").textContent = "Invalid professional email."; return; }
-  if (!isValidEmail(a)) { $("adminAssignMsg").textContent = "Invalid approver email."; return; }
-
-  let prof = await db.from("professionals").select("*").eq("email", p).maybeSingle();
-  if (prof.error) { $("adminAssignMsg").textContent = prof.error.message; return; }
-
-  if (!prof.data) {
-    const ins = await db.from("professionals").insert({ email: p, approver_email: a }).select("*").single();
-    if (ins.error) { $("adminAssignMsg").textContent = ins.error.message; return; }
-  } else {
-    const up = await db.from("professionals").update({ approver_email: a, updated_at: new Date().toISOString() }).eq("email", p);
-    if (up.error) { $("adminAssignMsg").textContent = up.error.message; return; }
-  }
-
-  $("adminAssignMsg").textContent = `Saved: ${p} → ${a}`;
-  toast("Saved", "Approver assignment updated.");
-};
-
 $("btnAddProject").onclick = async () => {
-  const name = $("projName").value.trim();
-  const status = $("projStatus").value;
+  const name=$("projName").value.trim();
   if (!name) return;
-
-  const ins = await db.from("projects").insert({ name, status }).select("*").single();
-  if (ins.error) { toast("Error", ins.error.message, "err"); return; }
-
-  $("projName").value = "";
-  await refreshAdminTables();
-  await loadReferenceData();
-  toast("Added", "Project created.");
+  await db.from("projects").insert({name,status:$("projStatus").value});
+  $("projName").value="";
+  refreshAdmin();
 };
 
-async function refreshAdminTables() {
-  // projects
-  const projectsRes = await db.from("projects").select("*").order("name",{ascending:true});
-  const projects = projectsRes.data || [];
-  let pHtml = `<div class="tableWrap"><table style="min-width:520px;"><thead><tr><th>Name</th><th>Status</th><th>Action</th></tr></thead><tbody>`;
-  for (const p of projects) {
-    pHtml += `
-      <tr>
-        <td>${escapeHtml(p.name)}</td>
-        <td>
-          <select data-pstatus="${p.id}">
-            <option value="active" ${p.status==="active"?"selected":""}>active</option>
-            <option value="inactive" ${p.status==="inactive"?"selected":""}>inactive</option>
-          </select>
-        </td>
-        <td><button class="btn dangerBtn" data-pdel="${p.id}">Delete</button></td>
-      </tr>
-    `;
-  }
-  pHtml += `</tbody></table></div>`;
-  $("projectsTable").innerHTML = pHtml;
+$("btnAddStatus").onclick = async () => {
+  const code=$("statusCode").value.trim();
+  const name=$("statusName").value.trim();
+  if (!code||!name) return;
+  await db.from("timesheet_statuses").insert({code,name});
+  $("statusCode").value=""; $("statusName").value="";
+  refreshAdmin();
+};
 
-  document.querySelectorAll("select[data-pstatus]").forEach(sel => {
-    sel.onchange = async () => {
-      const id = sel.getAttribute("data-pstatus");
-      await db.from("projects").update({ status: sel.value }).eq("id", id);
-      await loadReferenceData();
-      toast("Updated", "Project status updated.");
-    };
-  });
-  document.querySelectorAll("button[data-pdel]").forEach(btn => {
-    btn.onclick = async () => {
-      const id = btn.getAttribute("data-pdel");
-      await db.from("projects").delete().eq("id", id);
-      await refreshAdminTables();
-      await loadReferenceData();
-      toast("Deleted", "Project deleted.");
-    };
-  });
+$("btnAddActivity").onclick = async () => {
+  const code=$("activityCode").value.trim();
+  const name=$("activityName").value.trim();
+  if (!code||!name) return;
+  await db.from("activities").insert({code,name});
+  $("activityCode").value=""; $("activityName").value="";
+  refreshAdmin();
+};
 
-  // statuses
-  const sRes = await db.from("timesheet_statuses").select("*").order("code",{ascending:true});
-  const sts = sRes.data || [];
-  let sHtml = `<div class="tableWrap"><table style="min-width:320px;"><thead><tr><th>Code</th><th>Name</th></tr></thead><tbody>`;
-  for (const s of sts) {
-    sHtml += `<tr><td class="mono">${escapeHtml(s.code)}</td><td>${escapeHtml(s.name)}</td></tr>`;
-  }
-  sHtml += `</tbody></table></div>`;
-  $("statusesTable").innerHTML = sHtml;
-
-  // activities
-  const aRes = await db.from("activities").select("*").order("name",{ascending:true});
-  const acts = aRes.data || [];
-  let aHtml = `<div class="tableWrap"><table style="min-width:320px;"><thead><tr><th>Code</th><th>Name</th></tr></thead><tbody>`;
-  for (const a of acts) {
-    aHtml += `<tr><td class="mono">${escapeHtml(a.code)}</td><td>${escapeHtml(a.name)}</td></tr>`;
-  }
-  aHtml += `</tbody></table></div>`;
-  $("activitiesTable").innerHTML = aHtml;
-}
-
-// =========================
-// Init
-// =========================
-(async function init() {
-  $("proDate").value = toISODate(new Date());
+async function refreshAdmin() {
   await loadReferenceData();
-  await refreshAdminTables();
-  $("saveState").textContent = "Enter your email to begin.";
-})();
+}
