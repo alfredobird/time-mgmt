@@ -15,10 +15,7 @@ function toast(title, body = "", kind = "ok") {
   const t = $("toast");
   if (!t) return;
   t.className = "toast show " + (kind === "ok" ? "ok" : "err");
-  t.innerHTML = `
-    <div class="tTitle">${escapeHtml(title)}</div>
-    <div class="tBody">${escapeHtml(body)}</div>
-  `;
+  t.innerHTML = `<div class="tTitle">${escapeHtml(title)}</div><div class="tBody">${escapeHtml(body)}</div>`;
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => t.classList.remove("show"), 2600);
 }
@@ -26,13 +23,14 @@ function toast(title, body = "", kind = "ok") {
 function showBanner(id, text) {
   const el = $(id);
   if (!el) return;
-  if (!text) {
-    el.style.display = "none";
-    el.textContent = "";
-    return;
-  }
+  if (!text) { el.style.display = "none"; el.textContent = ""; return; }
   el.style.display = "block";
   el.textContent = text;
+}
+
+function setSaveState(chipText, stateText) {
+  if ($("saveChip")) $("saveChip").textContent = chipText;
+  if ($("saveState")) $("saveState").textContent = stateText;
 }
 
 function isValidEmail(email) {
@@ -112,11 +110,11 @@ let pro = {
   email: null,
   approver_email: null,
   period_start: null,
-  timesheet: null,         // {id, status, ...}
-  entries: [],             // time_entries
-  projects: [],            // projects
-  activities: [],          // activities
-  statuses: [],            // statuses
+  timesheet: null,
+  entries: [],
+  projects: [],
+  activities: [],
+  statuses: [],
   dirty: false
 };
 
@@ -132,20 +130,13 @@ function setActiveTab(tabId, panelId) {
 
 $("tabPro")?.addEventListener("click", () => setActiveTab("tabPro","panelPro"));
 $("tabAppr")?.addEventListener("click", () => setActiveTab("tabAppr","panelAppr"));
-$("tabAdmin")?.addEventListener("click", () => setActiveTab("tabAdmin","panelAdmin"));
 
-// =========================
-// Save state UI
-// =========================
-function setSaveState(chipText, stateText) {
-  if ($("saveChip")) $("saveChip").textContent = chipText;
-  if ($("saveState")) $("saveState").textContent = stateText;
-}
-
-function markDirty() {
-  pro.dirty = true;
-  setSaveState("Unsaved", "Changes detected (autosaving)...");
-}
+// IMPORTANT: refresh admin tables every time you click Admin
+$("tabAdmin")?.addEventListener("click", async () => {
+  setActiveTab("tabAdmin","panelAdmin");
+  await loadReferenceData();
+  await refreshAdminTables();
+});
 
 // =========================
 // Reference data
@@ -167,9 +158,13 @@ async function loadReferenceData() {
 }
 
 // =========================
-// *** CRITICAL FIX ***
-// Persist edits to Supabase
+// Persist edits to Supabase (prevents "data disappears" on approve)
 // =========================
+function markDirty() {
+  pro.dirty = true;
+  setSaveState("Unsaved", "Changes detected (autosaving)...");
+}
+
 async function updateEntryInDb(entry) {
   const payload = {
     activity_type: entry.activity_type,
@@ -178,6 +173,7 @@ async function updateEntryInDb(entry) {
     hours: safeNum(entry.hours),
     note: entry.note || ""
   };
+
   const res = await db.from("time_entries").update(payload).eq("id", entry.id);
   if (res.error) {
     showBanner("proErrors", res.error.message);
@@ -186,7 +182,6 @@ async function updateEntryInDb(entry) {
   return true;
 }
 
-// Debounced autosave per entry id
 const _entrySaveTimers = {};
 function scheduleEntryAutosave(entry) {
   markDirty();
@@ -201,10 +196,7 @@ function scheduleEntryAutosave(entry) {
 }
 
 async function saveAllEntriesNow() {
-  // Flush any pending autosaves first
   Object.keys(_entrySaveTimers).forEach(k => clearTimeout(_entrySaveTimers[k]));
-
-  // Force-write everything in memory to DB
   for (const e of pro.entries) {
     const ok = await updateEntryInDb(e);
     if (!ok) return false;
@@ -230,7 +222,6 @@ $("btnLoadPro")?.addEventListener("click", async () => {
   setSaveState("Loading", "Loading professional...");
   await loadReferenceData();
 
-  // Ensure professional exists
   let profRes = await db.from("professionals").select("*").eq("email", email).maybeSingle();
   if (profRes.error) { showBanner("proErrors", profRes.error.message); return; }
 
@@ -276,14 +267,12 @@ async function loadTimesheetAndEntries() {
   const end = addDays(start, 13);
   if ($("periodLabel")) $("periodLabel").textContent = `${start} to ${end}`;
 
-  // reload professional so approver changes show
   const pr = await db.from("professionals").select("*").eq("email", pro.email).single();
   if (!pr.error) pro.approver_email = pr.data.approver_email || null;
   if ($("proApproverMeta")) {
     $("proApproverMeta").innerHTML = `Approver: <span class="mono">${escapeHtml(pro.approver_email || "—")}</span>`;
   }
 
-  // load/create timesheet
   let tsRes = await db.from("timesheets")
     .select("*")
     .eq("professional_email", pro.email)
@@ -303,7 +292,6 @@ async function loadTimesheetAndEntries() {
   pro.timesheet = tsRes.data;
   if ($("tsStatus")) $("tsStatus").textContent = pro.timesheet.status;
 
-  // load entries
   const eRes = await db.from("time_entries")
     .select("*")
     .eq("timesheet_id", pro.timesheet.id)
@@ -371,9 +359,7 @@ function renderTimesheet() {
 
   $("timesheetArea").innerHTML = html;
 
-  for (const dayISO of days) {
-    renderDayRows(dayISO, activeProjects);
-  }
+  for (const dayISO of days) renderDayRows(dayISO, activeProjects);
 
   document.querySelectorAll("button[data-addrow]").forEach(btn => {
     btn.onclick = () => addNewRow(btn.getAttribute("data-addrow"));
@@ -456,17 +442,12 @@ function attachRowHandlers(entryId) {
 
   typeSel.onchange = async () => {
     e.activity_type = typeSel.value;
-    if (e.activity_type === "project") {
-      e.activity_code = null;
-    } else {
-      e.project_id = null;
-    }
+    if (e.activity_type === "project") e.activity_code = null;
+    else e.project_id = null;
 
-    // Save immediately so we never "lose" the switch on refresh
     const ok = await updateEntryInDb(e);
     if (!ok) return;
 
-    // Rerender day to swap dropdown
     const activeProjects = pro.projects.filter(p => p.status === "active");
     renderDayRows(e.entry_date, activeProjects);
     updateComputedUI();
@@ -482,6 +463,7 @@ function attachRowHandlers(entryId) {
       updateComputedUI();
     };
   }
+
   if (actSel) {
     actSel.onchange = () => {
       e.activity_code = actSel.value || null;
@@ -505,11 +487,10 @@ function attachRowHandlers(entryId) {
     showBanner("proErrors", "");
     const del = await db.from("time_entries").delete().eq("id", entryId);
     if (del.error) { showBanner("proErrors", del.error.message); return; }
+
     pro.entries = pro.entries.filter(x => x.id !== entryId);
-    markDirty();
     renderTimesheet();
     updateComputedUI();
-    // nothing else needed; row is deleted in DB now
     pro.dirty = false;
     setSaveState("Saved", "All changes saved.");
   };
@@ -530,13 +511,11 @@ async function addNewRow(dayISO) {
   if (ins.error) { showBanner("proErrors", ins.error.message); return; }
 
   pro.entries.push(ins.data);
-  markDirty();
 
   const activeProjects = pro.projects.filter(p => p.status === "active");
   renderDayRows(dayISO, activeProjects);
   updateComputedUI();
 
-  // Save immediately so the new row always persists
   await updateEntryInDb(ins.data);
   pro.dirty = false;
   setSaveState("Saved", "All changes saved.");
@@ -551,7 +530,6 @@ function updateComputedUI() {
 
   const days = buildPeriodDays(pro.period_start);
 
-  // totals
   const dayTotal = {};
   for (const d of days) dayTotal[d] = 0;
 
@@ -564,7 +542,6 @@ function updateComputedUI() {
     const total = round2(dayTotal[d] || 0);
     const el = $("dayTotal_" + d);
     if (el) el.textContent = total.toFixed(2);
-
     const w = weekIndexWithinPeriod(d, pro.period_start);
     if (w === 1) wk1 += total; else wk2 += total;
   }
@@ -601,7 +578,6 @@ function validateBeforeSaveOrSubmit(isSubmit) {
   const errs = [];
   const days = buildPeriodDays(pro.period_start);
 
-  // Per-row validation
   for (const e of pro.entries) {
     const h = safeNum(e.hours);
     if (h < 0) errs.push("Hours cannot be negative.");
@@ -615,7 +591,6 @@ function validateBeforeSaveOrSubmit(isSubmit) {
   }
 
   if (isSubmit) {
-    // max 24/day
     const dayTotal = {};
     for (const d of days) dayTotal[d] = 0;
     for (const e of pro.entries) {
@@ -625,7 +600,7 @@ function validateBeforeSaveOrSubmit(isSubmit) {
       if ((dayTotal[d] || 0) > 24.00001) errs.push(`Day ${d} exceeds 24 hours.`);
     }
 
-    // NEW RULE: 40 hrs minimum per week
+    // 40 hours minimum per week
     let wk1 = 0, wk2 = 0;
     for (const d of days) {
       const total = round2(dayTotal[d] || 0);
@@ -638,7 +613,6 @@ function validateBeforeSaveOrSubmit(isSubmit) {
     if (wk1 + 1e-9 < 40) errs.push(`Week 1 must be at least 40 hours (currently ${wk1.toFixed(2)}).`);
     if (wk2 + 1e-9 < 40) errs.push(`Week 2 must be at least 40 hours (currently ${wk2.toFixed(2)}).`);
 
-    // approver required
     if (!pro.approver_email || !isValidEmail(pro.approver_email)) {
       errs.push("No approver is assigned. Ask admin to assign one before submitting.");
     }
@@ -652,10 +626,8 @@ function validateBeforeSaveOrSubmit(isSubmit) {
 // =========================
 $("btnSave")?.addEventListener("click", async () => {
   showBanner("proErrors", "");
-
   if (!pro.timesheet) return;
 
-  // Ensure all entries are persisted
   const ok = await saveAllEntriesNow();
   if (!ok) return;
 
@@ -679,11 +651,9 @@ $("btnSubmit")?.addEventListener("click", async () => {
 
   if (!pro.timesheet) return;
 
-  // Validate using in-memory state
   const errs = validateBeforeSaveOrSubmit(true);
   if (errs.length) { showBanner("proErrors", errs[0]); return; }
 
-  // Ensure everything is actually stored in DB BEFORE status changes
   const ok = await saveAllEntriesNow();
   if (!ok) return;
 
@@ -708,9 +678,7 @@ $("btnSubmit")?.addEventListener("click", async () => {
 });
 
 // =========================
-// Approver
-// IMPORTANT: Approve/Return ONLY update timesheet.status
-// NEVER touch time_entries here.
+// Approver (status-only updates)
 // =========================
 $("btnLoadAppr")?.addEventListener("click", async () => {
   const email = ($("apprEmail")?.value || "").trim().toLowerCase();
@@ -774,14 +742,10 @@ $("btnLoadAppr")?.addEventListener("click", async () => {
   document.querySelectorAll("button[data-approve]").forEach(btn => {
     btn.onclick = async () => {
       const id = btn.getAttribute("data-approve");
-
-      // STATUS ONLY — do not touch time_entries
       const up = await db.from("timesheets")
         .update({ status: "approved", updated_at: new Date().toISOString() })
         .eq("id", id);
-
       if (up.error) return toast("Error", up.error.message, "err");
-
       toast("Approved", "Timesheet approved.");
       $("btnLoadAppr").click();
     };
@@ -790,14 +754,10 @@ $("btnLoadAppr")?.addEventListener("click", async () => {
   document.querySelectorAll("button[data-return]").forEach(btn => {
     btn.onclick = async () => {
       const id = btn.getAttribute("data-return");
-
-      // STATUS ONLY — do not touch time_entries
       const up = await db.from("timesheets")
         .update({ status: "return", updated_at: new Date().toISOString() })
         .eq("id", id);
-
       if (up.error) return toast("Error", up.error.message, "err");
-
       toast("Returned", "Timesheet returned to professional.");
       $("btnLoadAppr").click();
     };
@@ -880,7 +840,7 @@ $("btnAddActivity")?.addEventListener("click", async () => {
 });
 
 // =========================
-// Admin: Tables (Projects + Statuses + Activities)
+// Admin: Tables (display existing Projects / Statuses / Activities)
 // =========================
 async function refreshAdminTables() {
   // Projects
@@ -925,7 +885,7 @@ async function refreshAdminTables() {
     };
   });
 
-  // Statuses (editable name, delete)
+  // Statuses
   const sRes = await db.from("timesheet_statuses").select("*").order("code",{ascending:true});
   const sts = sRes.data || [];
   let sHtml = `<div class="tableWrap"><table style="min-width:520px;"><thead><tr><th>Code</th><th>Name</th><th>Action</th></tr></thead><tbody>`;
@@ -963,14 +923,14 @@ async function refreshAdminTables() {
     btn.onclick = async () => {
       const code = btn.getAttribute("data-sdel");
       const del = await db.from("timesheet_statuses").delete().eq("code", code);
-      if (del.error) return toast("Error", del.error.message, "err"); // may fail if referenced
+      if (del.error) return toast("Error", del.error.message, "err");
       await refreshAdminTables();
       await loadReferenceData();
       toast("Deleted", `Status ${code} deleted.`);
     };
   });
 
-  // Activities (editable name, delete)
+  // Activities
   const aRes = await db.from("activities").select("*").order("code",{ascending:true});
   const acts = aRes.data || [];
   let aHtml = `<div class="tableWrap"><table style="min-width:520px;"><thead><tr><th>Code</th><th>Name</th><th>Action</th></tr></thead><tbody>`;
@@ -1008,7 +968,7 @@ async function refreshAdminTables() {
     btn.onclick = async () => {
       const code = btn.getAttribute("data-adel");
       const del = await db.from("activities").delete().eq("code", code);
-      if (del.error) return toast("Error", del.error.message, "err"); // may fail if referenced
+      if (del.error) return toast("Error", del.error.message, "err");
       await refreshAdminTables();
       await loadReferenceData();
       toast("Deleted", `Activity ${code} deleted.`);
@@ -1022,6 +982,7 @@ async function refreshAdminTables() {
 (async function init() {
   if ($("proDate")) $("proDate").value = toISODate(new Date());
   setSaveState("Not loaded", "Enter your email to begin.");
+
   await loadReferenceData();
-  await refreshAdminTables();
+  await refreshAdminTables(); // display existing data on first load too
 })();
