@@ -853,8 +853,8 @@ async function refreshAdminTables() {
         <td>${escapeHtml(p.name)}</td>
         <td>
           <select data-pstatus="${p.id}">
-            <option value="active" ${p.status==="active"?"selected":""}>active</option>
-            <option value="inactive" ${p.status==="inactive"?"selected":""}>inactive</option>
+            <option value="Active" ${p.status==="Active"?"selected":""}>Active</option>
+            <option value="Inactive" ${p.status==="Inactive"?"selected":""}>Inactive</option>
           </select>
         </td>
         <td><button class="btn dangerBtn" data-pdel="${p.id}">Delete</button></td>
