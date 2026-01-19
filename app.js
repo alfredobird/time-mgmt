@@ -283,7 +283,7 @@ async function loadTimesheetAndEntries() {
 
   if (!tsRes.data) {
     const ins = await db.from("timesheets")
-      .insert({ professional_email: pro.email, period_start: start, status: "Draft" })
+      .insert({ professional_email: pro.email, period_start: start, status: "draft" })
       .select("*").single();
     if (ins.error) { showBanner("proErrors", ins.error.message); return; }
     tsRes = ins;
@@ -632,7 +632,7 @@ $("btnSave")?.addEventListener("click", async () => {
   if (!ok) return;
 
   const up = await db.from("timesheets")
-    .update({ status: "Draft", updated_at: new Date().toISOString() })
+    .update({ status: "draft", updated_at: new Date().toISOString() })
     .eq("id", pro.timesheet.id)
     .select("*").single();
 
