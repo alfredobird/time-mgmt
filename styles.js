@@ -255,4 +255,55 @@ td.right{ text-align:right; }
   align-items:center;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid var(--bord
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(15,22,41,.75);
+  backdrop-filter: blur(14px);
+}
+.saveState{ display:flex; align-items:center; gap: 10px; flex-wrap: wrap; }
+.actions{ display:flex; gap: 10px; flex-wrap: wrap; }
+
+.chip{
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.05);
+}
+
+.toast{
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: min(520px, calc(100% - 32px));
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(15,22,41,.85);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+  display:none;
+}
+.toast.show{ display:block; }
+.toast.ok{ border-color: rgba(68,209,157,.45); }
+.toast.err{ border-color: rgba(255,77,109,.45); }
+.toast .tTitle{ font-weight: 800; margin-bottom: 6px; }
+.toast .tBody{ color: var(--muted); font-size: 12px; }
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.05);
+  font-size: 12px;
+}
+.badge .dot{
+  width: 8px; height:8px; border-radius:999px;
+  background: var(--muted);
+}
+.badge.green .dot{ background: var(--ok); box-shadow: 0 0 0 4px rgba(68,209,157,.12); }
+.badge.yellow .dot{ background: var(--warn); box-shadow: 0 0 0 4px rgba(255,204,102,.12); }
+.badge.blue .dot{ background: var(--accent); box-shadow: 0 0 0 4px rgba(122,162,255,.12); }
