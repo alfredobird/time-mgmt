@@ -64,8 +64,13 @@
             <span>Status:</span>
             <span id="tsStatus" class="mono">—</span>
           </div>
-          <div class="small muted">Anchor: first 2026 period starts <span class="mono">2026-01-05</span> (Monday).</div>
-          <div class="small muted">Submit rule: <span class="mono">40 hours minimum per week</span> (Week 1 and Week 2).</div>
+
+          <div class="small muted">
+            Anchor: first 2026 period starts <span class="mono">2026-01-05</span> (Monday).
+          </div>
+          <div class="small muted">
+            Submit rule: <span class="mono">40 hours minimum per week</span> (Week 1 and Week 2).
+          </div>
         </div>
       </div>
 
@@ -93,7 +98,7 @@
     <section id="panelAppr" class="panel" role="tabpanel" aria-labelledby="tabAppr">
       <div class="panelHeader">
         <h2>Approver</h2>
-        <div class="hint">View and approve submitted timesheets for professionals assigned to you.</div>
+        <div class="hint">Approve or return submitted timesheets.</div>
       </div>
 
       <div class="card">
@@ -141,8 +146,8 @@
           <div class="row">
             <input id="projName" placeholder="Project name" />
             <select id="projStatus">
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
+              <option value="active">active</option>
+              <option value="inactive">inactive</option>
             </select>
             <button class="btn" id="btnAddProject">Add</button>
           </div>
@@ -154,7 +159,7 @@
         <div class="card">
           <div class="cardTitle">Timesheet statuses</div>
           <div class="row" style="margin-bottom:10px;">
-            <input id="statusCode" placeholder="Code (e.g., Draft)" style="max-width:220px;" />
+            <input id="statusCode" placeholder="Code (e.g., draft)" style="max-width:220px;" />
             <input id="statusName" placeholder="Name (e.g., Draft)" />
             <button class="btn" id="btnAddStatus" style="max-width:140px;">Add</button>
           </div>
