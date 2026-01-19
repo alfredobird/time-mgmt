@@ -64,7 +64,12 @@
             <span>Status:</span>
             <span id="tsStatus" class="mono">—</span>
           </div>
-          <div class="small muted">Anchor: first 2026 period starts <span class="mono">2026-01-05</span> (Monday).</div>
+          <div class="small muted">
+            Anchor: first 2026 period starts <span class="mono">2026-01-05</span> (Monday).
+          </div>
+          <div class="small muted">
+            Submit rule: each week must total at least <span class="mono">40.00</span> hours.
+          </div>
         </div>
       </div>
 
@@ -139,44 +144,42 @@
           <div class="cardTitle">Projects</div>
           <div class="row">
             <input id="projName" placeholder="Project name" />
-            <select id="projStatus">
+            <select id="projStatus" style="max-width:160px;">
               <option value="active">active</option>
               <option value="inactive">inactive</option>
             </select>
-            <button class="btn" id="btnAddProject">Add</button>
+            <button class="btn" id="btnAddProject" style="max-width:120px;">Add</button>
           </div>
           <div id="projectsTable"></div>
         </div>
       </div>
 
       <div class="grid2">
-        
         <div class="card">
           <div class="cardTitle">Timesheet statuses</div>
-        
+
           <div class="row" style="margin-bottom:10px;">
             <input id="statusCode" placeholder="Code (e.g., draft)" style="max-width:220px;" />
             <input id="statusName" placeholder="Name (e.g., Draft)" />
             <button class="btn" id="btnAddStatus" style="max-width:140px;">Add</button>
           </div>
-      
+
           <div id="statusesTable"></div>
           <div class="small muted">Note: codes are editable only when creating a new status.</div>
         </div>
-      
+
         <div class="card">
           <div class="cardTitle">Activities</div>
-        
+
           <div class="row" style="margin-bottom:10px;">
             <input id="activityCode" placeholder="Code (e.g., PTO)" style="max-width:220px;" />
             <input id="activityName" placeholder="Name (e.g., PTO)" />
             <button class="btn" id="btnAddActivity" style="max-width:140px;">Add</button>
           </div>
-        
+
           <div id="activitiesTable"></div>
           <div class="small muted">Note: codes are editable only when creating a new activity.</div>
         </div>
-        
       </div>
     </section>
   </main>
