@@ -1,0 +1,82 @@
+-- Timesheet app (simple) schema
+-- NOTE: This intentionally disables RLS (security) to keep it newbie-simple.
+-- Do NOT use this in a real production scenario.
+
+create extension if not exists "uuid-ossp";
+
+-- Professionals (who enters time) and their assigned approver
+create table if not exists professionals (
+  email text primary key,
+  approver_email text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Projects list managed by admin
+create table if not exists projects (
+  id uuid primary key default uuid_generate_v4(),
+  name text not null,
+  status text not null check (status in ('active','inactive')) default 'active',
+  created_at timestamptz default now()
+);
+
+-- Pre-defined non-project activities
+create table if not exists activities (
+  code text primary key,
+  name text not null
+);
+
+-- Timesheet statuses (admin-maintained, but we’ll seed defaults)
+create table if not exists timesheet_statuses (
+  code text primary key,
+  name text not null
+);
+
+-- A timesheet is for one professional + one two-week period
+create table if not exists timesheets (
+  id uuid primary key default uuid_generate_v4(),
+  professional_email text not null references professionals(email) on delete cascade,
+  period_start date not null,
+  status text not null references timesheet_statuses(code),
+  submitted_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (professional_email, period_start)
+);
+
+-- Individual time entries (multiple rows per day allowed)
+create table if not exists time_entries (
+  id uuid primary key default uuid_generate_v4(),
+  timesheet_id uuid not null references timesheets(id) on delete cascade,
+  entry_date date not null,
+  activity_type text not null check (activity_type in ('project','activity')),
+  project_id uuid references projects(id),
+  activity_code text references activities(code),
+  hours numeric(5,2) not null default 0,
+  note text default '',
+  created_at timestamptz default now()
+);
+
+-- Seed statuses (draft/submitted/return/approved)
+insert into timesheet_statuses (code, name) values
+  ('draft','Draft'),
+  ('submitted','Submitted'),
+  ('return','Returned'),
+  ('approved','Approved')
+on conflict (code) do nothing;
+
+-- Seed default activities
+insert into activities (code, name) values
+  ('PTO','PTO'),
+  ('SICK','Sick'),
+  ('HOLIDAY','Holiday'),
+  ('BENCH','Bench')
+on conflict (code) do nothing;
+
+-- SECURITY: Disable RLS for simplicity
+alter table professionals disable row level security;
+alter table projects disable row level security;
+alter table activities disable row level security;
+alter table timesheet_statuses disable row level security;
+alter table timesheets disable row level security;
+alter table time_entries disable row level security;
