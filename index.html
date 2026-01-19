@@ -150,14 +150,33 @@
       </div>
 
       <div class="grid2">
+        
         <div class="card">
           <div class="cardTitle">Timesheet statuses</div>
+        
+          <div class="row" style="margin-bottom:10px;">
+            <input id="statusCode" placeholder="Code (e.g., draft)" style="max-width:220px;" />
+            <input id="statusName" placeholder="Name (e.g., Draft)" />
+            <button class="btn" id="btnAddStatus" style="max-width:140px;">Add</button>
+          </div>
+      
           <div id="statusesTable"></div>
+          <div class="small muted">Note: codes are editable only when creating a new status.</div>
         </div>
+      
         <div class="card">
           <div class="cardTitle">Activities</div>
+        
+          <div class="row" style="margin-bottom:10px;">
+            <input id="activityCode" placeholder="Code (e.g., PTO)" style="max-width:220px;" />
+            <input id="activityName" placeholder="Name (e.g., PTO)" />
+            <button class="btn" id="btnAddActivity" style="max-width:140px;">Add</button>
+          </div>
+        
           <div id="activitiesTable"></div>
+          <div class="small muted">Note: codes are editable only when creating a new activity.</div>
         </div>
+        
       </div>
     </section>
   </main>
