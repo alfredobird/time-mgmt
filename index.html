@@ -6,6 +6,7 @@
   <title>Time Entry</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
+
 <body>
   <header class="topbar">
     <div class="brand">
@@ -17,16 +18,18 @@
     </div>
 
     <nav class="tabs" role="tablist" aria-label="Pages">
-      <button class="tab active" id="tabPro" role="tab" aria-selected="true">Professional</button>
-      <button class="tab" id="tabAppr" role="tab" aria-selected="false">Approver</button>
-      <button class="tab" id="tabAdmin" role="tab" aria-selected="false">Admin</button>
+      <button class="tab active" id="tabPro" role="tab" aria-selected="true" type="button">Professional</button>
+      <button class="tab" id="tabAppr" role="tab" aria-selected="false" type="button">Approver</button>
+      <button class="tab" id="tabAdmin" role="tab" aria-selected="false" type="button">Admin</button>
     </nav>
   </header>
 
   <main class="container">
     <div id="toast" class="toast" aria-live="polite"></div>
 
-    <!-- Professional -->
+    <!-- ===================== -->
+    <!-- PROFESSIONAL -->
+    <!-- ===================== -->
     <section id="panelPro" class="panel active" role="tabpanel" aria-labelledby="tabPro">
       <div class="panelHeader">
         <h2>Professional</h2>
@@ -41,7 +44,7 @@
             <input id="proEmail" placeholder="name@company.com" />
           </label>
           <div class="row">
-            <button class="btn primary" id="btnLoadPro">Load</button>
+            <button class="btn primary" id="btnLoadPro" type="button">Load</button>
             <div class="meta" id="proApproverMeta">Approver: <span class="mono">—</span></div>
           </div>
         </div>
@@ -53,7 +56,7 @@
             <input id="proDate" type="date" />
           </label>
           <div class="row">
-            <button class="btn" id="btnSetPeriod">Set period</button>
+            <button class="btn" id="btnSetPeriod" type="button">Set period</button>
             <div class="meta">
               Period: <span id="periodLabel" class="mono">—</span>
             </div>
@@ -65,12 +68,8 @@
             <span id="tsStatus" class="mono">—</span>
           </div>
 
-          <div class="small muted">
-            Anchor: first 2026 period starts <span class="mono">2026-01-05</span> (Monday).
-          </div>
-          <div class="small muted">
-            Submit rule: <span class="mono">40 hours minimum per week</span> (Week 1 and Week 2).
-          </div>
+          <div class="small muted">Anchor: first 2026 period starts <span class="mono">2026-01-05</span> (Monday).</div>
+          <div class="small muted">Submit rule: <span class="mono">40 hours minimum per week</span> (Week 1 and Week 2).</div>
         </div>
       </div>
 
@@ -88,17 +87,19 @@
           <span id="saveState" class="muted small">—</span>
         </div>
         <div class="actions">
-          <button class="btn" id="btnSave">Save</button>
-          <button class="btn primary" id="btnSubmit">Submit for approval</button>
+          <button class="btn" id="btnSave" type="button">Save</button>
+          <button class="btn primary" id="btnSubmit" type="button">Submit for approval</button>
         </div>
       </div>
     </section>
 
-    <!-- Approver -->
+    <!-- ===================== -->
+    <!-- APPROVER -->
+    <!-- ===================== -->
     <section id="panelAppr" class="panel" role="tabpanel" aria-labelledby="tabAppr">
       <div class="panelHeader">
         <h2>Approver</h2>
-        <div class="hint">Approve or return submitted timesheets.</div>
+        <div class="hint">View and approve submitted timesheets.</div>
       </div>
 
       <div class="card">
@@ -109,7 +110,7 @@
             <input id="apprEmail" placeholder="approver@company.com" />
           </label>
           <div class="row end">
-            <button class="btn primary" id="btnLoadAppr">Load submitted timesheets</button>
+            <button class="btn primary" id="btnLoadAppr" type="button">Load submitted timesheets</button>
           </div>
         </div>
       </div>
@@ -117,7 +118,9 @@
       <div id="apprList"></div>
     </section>
 
-    <!-- Admin -->
+    <!-- ===================== -->
+    <!-- ADMIN -->
+    <!-- ===================== -->
     <section id="panelAdmin" class="panel" role="tabpanel" aria-labelledby="tabAdmin">
       <div class="panelHeader">
         <h2>Admin</h2>
@@ -136,7 +139,7 @@
             <input id="adminApproverEmail" placeholder="approver@company.com" />
           </label>
           <div class="row">
-            <button class="btn primary" id="btnAssignApprover">Save assignment</button>
+            <button class="btn primary" id="btnAssignApprover" type="button">Save assignment</button>
             <div id="adminAssignMsg" class="small muted"></div>
           </div>
         </div>
@@ -149,7 +152,7 @@
               <option value="active">active</option>
               <option value="inactive">inactive</option>
             </select>
-            <button class="btn" id="btnAddProject">Add</button>
+            <button class="btn" id="btnAddProject" type="button">Add</button>
           </div>
           <div id="projectsTable"></div>
         </div>
@@ -161,7 +164,7 @@
           <div class="row" style="margin-bottom:10px;">
             <input id="statusCode" placeholder="Code (e.g., draft)" style="max-width:220px;" />
             <input id="statusName" placeholder="Name (e.g., Draft)" />
-            <button class="btn" id="btnAddStatus" style="max-width:140px;">Add</button>
+            <button class="btn" id="btnAddStatus" type="button" style="max-width:140px;">Add</button>
           </div>
           <div id="statusesTable"></div>
           <div class="small muted">Codes are only editable when creating a new status.</div>
@@ -172,7 +175,7 @@
           <div class="row" style="margin-bottom:10px;">
             <input id="activityCode" placeholder="Code (e.g., PTO)" style="max-width:220px;" />
             <input id="activityName" placeholder="Name (e.g., PTO)" />
-            <button class="btn" id="btnAddActivity" style="max-width:140px;">Add</button>
+            <button class="btn" id="btnAddActivity" type="button" style="max-width:140px;">Add</button>
           </div>
           <div id="activitiesTable"></div>
           <div class="small muted">Codes are only editable when creating a new activity.</div>
@@ -181,6 +184,7 @@
     </section>
   </main>
 
+  <!-- IMPORTANT: Supabase MUST load before app.js -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
 </body>
